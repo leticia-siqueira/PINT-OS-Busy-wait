@@ -21,13 +21,17 @@
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
 
-static struct list sleep_list;
 
-struct sleeper{
-    struct list_elem elem;      
-    int64_t wake_tick;          
-    struct semaphore sema;      
+static struct list lista_de_adormecidas;
+
+struct dorminhocas{
+    
+  struct list_elem elemento;      
+    int64_t tick_acordar;           
+    struct thread *thread_dormindo; 
+  
   };
+
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */
 static unsigned loops_per_tick;
@@ -41,8 +45,8 @@ static void real_time_delay (int64_t num, int32_t denom);
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
    and registers the corresponding interrupt. */
 void
-timer_init (void) 
-{
+timer_init (void) {
+  list_init (&lista_de_adormecidas);
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
 }
@@ -92,16 +96,41 @@ timer_elapsed (int64_t then)
   return timer_ticks () - then;
 }
 
+
+static bool
+
+dorme_menos (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED){
+  
+  struct dorminhocas *dorm_a = list_entry (a, struct dorminhocas, elemento);
+  
+  struct dorminhocas *dorm_b = list_entry (b, struct dorminhocas, elemento);
+
+  
+  if (dorm_a->tick_acordar < dorm_b->tick_acordar){
+    return true;
+
+  }else{
+    
+    return false;
+  }
+}
+
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
    be turned on. */
 void
-timer_sleep (int64_t ticks) 
-{
-  int64_t start = timer_ticks ();
+timer_sleep (int64_t ticks) {
+  struct dorminhocas dorminhoca;
 
   ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
+  
+  if (ticks <= 0)
+    return;
+
+  dorminhoca.tick_acordar = timer_ticks () + ticks;
+  dorminhoca.thread_dormindo = thread_current ();
+
+  list_insert_ordered (&lista_de_adormecidas, &dorminhoca.elemento, dorme_menos, NULL);
+  thread_block ();
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -175,28 +204,32 @@ timer_print_stats (void)
 }
 
 
+/* Acorda no maximo uma dorminhoca por tick, se o tick de acordar dela
+   ja chegou.  Chamada pelo handler do timer, com interrupcoes desativadas. */
 static void
-wake_expired_sleepers (void)
-{
-  while (!list_empty (&sleep_list))
-    {
-      struct sleeper *s = list_entry (list_front (&sleep_list),
-                                      struct sleeper, elem);
-      if (s->wake_tick > ticks)
-        break;
-      list_pop_front (&sleep_list);
-      sema_up (&s->sema);
+acorda_dorminhocas_expiradas (void){
+  struct dorminhocas *d;
+
+  if (list_empty (&lista_de_adormecidas))
+    return;
+  
+  d = list_entry (list_front (&lista_de_adormecidas), struct dorminhocas, elemento);
+  
+  if (d->tick_acordar <= ticks){
+      
+    list_pop_front (&lista_de_adormecidas);
+      sema_up (&d->semaforo);
     }
 }
 
+/* Timer interrupt handler. */
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
-  wake_expired_sleepers ();
+  acorda_dorminhocas_expiradas ();
 }
-
 
 /* Returns true if LOOPS iterations waits for more than one timer
    tick, otherwise false. */
