@@ -118,6 +118,7 @@ dorme_menos (const struct list_elem *a, const struct list_elem *b, void *aux UNU
    be turned on. */
 void
 timer_sleep (int64_t ticks) {
+  
   struct dorminhocas dorminhoca;
   enum intr_level old_level;
 
@@ -133,6 +134,7 @@ timer_sleep (int64_t ticks) {
   old_level = intr_disable ();
   
   list_push_back (&lista_de_adormecidas, &dorminhoca.elemento);
+  
   intr_set_level (old_level);
 
   sema_down (&dorminhoca.semaforo);
@@ -215,16 +217,19 @@ acorda_dorminhocas_expiradas (void){
   
   struct dorminhocas *d;
 
-  if (list_empty (&lista_de_adormecidas)){
-    return;
-  }
-  d = list_entry (list_front (&lista_de_adormecidas), struct dorminhocas, elemento);
+  while (list_empty (&lista_de_adormecidas) == false){
 
-  if (d->tick_acordar <= ticks){
-    
-    list_pop_front (&lista_de_adormecidas);
-    
-    sema_up (&d->semaforo);
+    d = list_entry (list_front (&lista_de_adormecidas), struct dorminhocas, elemento);
+
+    if (d->tick_acordar <= ticks){
+
+      list_pop_front (&lista_de_adormecidas);
+      sema_up (&d->semaforo);
+
+    }else{
+
+      break;
+    }
   }
 }
 
