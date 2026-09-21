@@ -1,0 +1,6 @@
+build/
+*.o
+*.d
+*.dsk
+*.log
+!evidencias.log
