@@ -174,6 +174,21 @@ timer_print_stats (void)
   printf ("Timer: %"PRId64" ticks\n", timer_ticks ());
 }
 
+
+static void
+wake_expired_sleepers (void)
+{
+  while (!list_empty (&sleep_list))
+    {
+      struct sleeper *s = list_entry (list_front (&sleep_list),
+                                      struct sleeper, elem);
+      if (s->wake_tick > ticks)
+        break;
+      list_pop_front (&sleep_list);
+      sema_up (&s->sema);
+    }
+}
+
 /* Timer interrupt handler. */
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
