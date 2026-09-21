@@ -24,13 +24,12 @@ static int64_t ticks;
 
 static struct list lista_de_adormecidas;
 
-struct dorminhocas{
-    
-  struct list_elem elemento;      
-    int64_t tick_acordar;           
-    struct thread *thread_dormindo; 
+struct dorminhocas {
   
-  };
+  struct list_elem elemento;
+  int64_t tick_acordar;
+  struct semaphore semaforo;      
+};
 
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */
@@ -120,17 +119,23 @@ dorme_menos (const struct list_elem *a, const struct list_elem *b, void *aux UNU
 void
 timer_sleep (int64_t ticks) {
   struct dorminhocas dorminhoca;
+  enum intr_level old_level;
 
   ASSERT (intr_get_level () == INTR_ON);
-  
+
   if (ticks <= 0)
     return;
 
   dorminhoca.tick_acordar = timer_ticks () + ticks;
-  dorminhoca.thread_dormindo = thread_current ();
+  
+  sema_init (&dorminhoca.semaforo, 0);
 
-  list_insert_ordered (&lista_de_adormecidas, &dorminhoca.elemento, dorme_menos, NULL);
-  thread_block ();
+  old_level = intr_disable ();
+  
+  list_push_back (&lista_de_adormecidas, &dorminhoca.elemento);
+  intr_set_level (old_level);
+
+  sema_down (&dorminhoca.semaforo);
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -204,22 +209,23 @@ timer_print_stats (void)
 }
 
 
-/* Acorda no maximo uma dorminhoca por tick, se o tick de acordar dela
-   ja chegou.  Chamada pelo handler do timer, com interrupcoes desativadas. */
+
 static void
 acorda_dorminhocas_expiradas (void){
+  
   struct dorminhocas *d;
 
-  if (list_empty (&lista_de_adormecidas))
+  if (list_empty (&lista_de_adormecidas)){
     return;
-  
+  }
   d = list_entry (list_front (&lista_de_adormecidas), struct dorminhocas, elemento);
-  
+
   if (d->tick_acordar <= ticks){
-      
+    
     list_pop_front (&lista_de_adormecidas);
-      sema_up (&d->semaforo);
-    }
+    
+    sema_up (&d->semaforo);
+  }
 }
 
 /* Timer interrupt handler. */
