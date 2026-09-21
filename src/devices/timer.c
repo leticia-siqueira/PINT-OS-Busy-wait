@@ -133,7 +133,7 @@ timer_sleep (int64_t ticks) {
 
   old_level = intr_disable ();
   
-  list_push_back (&lista_de_adormecidas, &dorminhoca.elemento);
+  list_insert_ordered (&lista_de_adormecidas, &dorminhoca.elemento, dorme_menos, NULL);
   
   intr_set_level (old_level);
 
