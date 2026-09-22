@@ -98,7 +98,10 @@ timer_elapsed (int64_t then)
 
 static bool
 
-dorme_menos (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED){
+static bool
+dorme_menos (const struct list_elem *a, const struct list_elem *b,
+            void *aux UNUSED)
+{
   
   struct dorminhocas *dorm_a = list_entry (a, struct dorminhocas, elemento);
   
@@ -133,7 +136,8 @@ timer_sleep (int64_t ticks) {
 
   old_level = intr_disable ();
   
-  list_insert_ordered (&lista_de_adormecidas, &dorminhoca.elemento, dorme_menos, NULL);
+    list_insert_ordered (&lista_de_adormecidas, &dorminhoca.elemento,
+                       dorme_menos, NULL);
   
   intr_set_level (old_level);
 
@@ -219,7 +223,8 @@ acorda_dorminhocas_expiradas (void){
 
   while (list_empty (&lista_de_adormecidas) == false){
 
-    d = list_entry (list_front (&lista_de_adormecidas), struct dorminhocas, elemento);
+    d = list_entry (list_front (&lista_de_adormecidas),
+                    struct dorminhocas, elemento);
 
     if (d->tick_acordar <= ticks){
 
