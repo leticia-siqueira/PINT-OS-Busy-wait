@@ -95,9 +95,6 @@ timer_elapsed (int64_t then)
   return timer_ticks () - then;
 }
 
-
-static bool
-
 static bool
 dorme_menos (const struct list_elem *a, const struct list_elem *b,
             void *aux UNUSED)
